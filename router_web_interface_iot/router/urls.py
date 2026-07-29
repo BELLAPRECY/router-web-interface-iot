@@ -10,4 +10,5 @@ urlpatterns = [
     path("passwd", views.password_view, name="passwd"),
     path("reboot", views.reboot_view, name="reboot"),
     path("api/status", views.status_view, name="status"),
+    path("attack-lab/", views.attack_lab_view, name="attack_lab"),
 ]

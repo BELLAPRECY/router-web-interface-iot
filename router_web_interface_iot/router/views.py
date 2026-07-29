@@ -124,3 +124,9 @@ def status_view(request):
         },
         "state": request.session.get("router_state", {}),
     })
+
+
+@require_GET
+def attack_lab_view(request):
+    """Serve the controlled browser attack launcher on an attacker origin."""
+    return render(request, "router/attack_lab.html")

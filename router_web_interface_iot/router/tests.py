@@ -45,6 +45,15 @@ class DefenceTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
 
+    @override_settings(LAB_TOKEN_IDLE_SECONDS=-1)
+    def test_expired_token_is_rejected(self):
+        response = self.client.post(
+            "/login",
+            {"username": "admin", "password": "routerlab", "csrf_token": self.token},
+            HTTP_ORIGIN=ORIGIN,
+        )
+        self.assertEqual(response.status_code, 403)
+
 
 @override_settings(LAB_CONDITION="C0", ROUTER_AUTH_BACKEND="local")
 class BaselineTests(TestCase):
@@ -55,6 +64,11 @@ class BaselineTests(TestCase):
             HTTP_ORIGIN="http://attacker.test:8080",
         )
         self.assertEqual(response.status_code, 302)
+
+    def test_attack_lab_is_available_to_attacker_server(self):
+        response = self.client.get("/attack-lab/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "CSRF attack laboratory")
 
 
 class OpenWrtAuthenticationTests(TestCase):

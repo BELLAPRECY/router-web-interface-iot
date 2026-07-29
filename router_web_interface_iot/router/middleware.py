@@ -1,10 +1,11 @@
 import hmac
+import time
 from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.http import JsonResponse
 
-from .security import TOKEN_KEY
+from .security import TOKEN_KEY, TOKEN_SEEN_KEY
 
 
 class FullStackCSRFMiddleware:
@@ -23,7 +24,14 @@ class FullStackCSRFMiddleware:
                 or request.POST.get("csrf_token", "")
             )
             expected = request.session.get(TOKEN_KEY, "")
-            if not supplied or not expected or not hmac.compare_digest(supplied, expected):
+            last_seen = request.session.get(TOKEN_SEEN_KEY, 0)
+            expired = time.time() - last_seen > settings.LAB_TOKEN_IDLE_SECONDS
+            if (
+                expired
+                or not supplied
+                or not expected
+                or not hmac.compare_digest(supplied, expected)
+            ):
                 return JsonResponse(
                     {"error": "Missing or invalid CSRF token"}, status=403
                 )

