@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+set -eu
+
+LAB_CONDITION=C1 \
+DJANGO_ALLOWED_HOSTS=192.168.56.1,127.0.0.1,localhost \
+LAB_ALLOWED_ORIGINS=http://192.168.56.1:8000,http://127.0.0.1:8000,http://localhost:8000 \
+SESSION_COOKIE_SECURE=0 \
+ROUTER_AUTH_BACKEND=ubus \
+ROUTER_UBUS_URL=http://192.168.56.2/ubus \
+python manage.py runserver 0.0.0.0:8000

