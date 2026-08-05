@@ -1,0 +1,182 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ROUTER1 · Control Center</title>
+  <link rel="stylesheet" href="{% static 'router/style.css' %}?v=2">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <a class="logo" href="{% url 'dashboard' %}" aria-label="Router dashboard">
+      <span class="logo-mark"><i></i><i></i><i></i></span>
+      <span>ROUTER<b>1</b><small>IoT Gateway</small></span>
+    </a>
+    <nav>
+      <a class="active" href="#overview">
+        <svg viewBox="0 0 24 24"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></svg>
+        Overview
+      </a>
+      <a href="#network">
+        <svg viewBox="0 0 24 24"><path d="M12 18.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM2.8 8.9l2 2a10.2 10.2 0 0 1 14.4 0l2-2a13 13 0 0 0-18.4 0Zm4 4 2 2a4.5 4.5 0 0 1 6.4 0l2-2a7.4 7.4 0 0 0-10.4 0Z"/></svg>
+        Network
+      </a>
+      <a href="#security">
+        <svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5l-8-3Zm0 3.1 5 1.8V11c0 3.6-2.2 6.9-5 7.9V5.1Z"/></svg>
+        Security
+      </a>
+      <a href="#device">
+        <svg viewBox="0 0 24 24"><path d="M13 3h-2v10h2V3Zm4.8 2.2-1.4 1.4a7 7 0 1 1-8.8 0L6.2 5.2a9 9 0 1 0 11.6 0Z"/></svg>
+        System
+      </a>
+    </nav>
+    <div class="sidebar-foot">
+      <span>Experiment mode</span>
+      <strong class="mode {{ lab_condition|lower }}">{{ lab_condition }}</strong>
+      <small>{% if lab_condition == "C1" %}Full-stack defence{% else %}Unprotected baseline{% endif %}</small>
+    </div>
+  </aside>
+
+  <div class="workspace">
+    <header class="topbar">
+      <button class="menu" aria-label="Toggle menu">☰</button>
+      <div class="crumb">Control center <span>/</span> Overview</div>
+      <div class="top-actions">
+        <a class="icon-button" href="{{ router_connection.luci_url }}" target="_blank" rel="noopener" title="Open LuCI">
+          <svg viewBox="0 0 24 24"><path d="M14 3v2h3.6l-9.3 9.3 1.4 1.4L19 6.4V10h2V3h-7Z"/><path d="M19 19H5V5h6V3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-6h-2v6Z"/></svg>
+        </a>
+        <div class="avatar">A</div>
+      </div>
+    </header>
+
+    <main id="overview">
+      <section class="welcome">
+        <div>
+          <p class="eyebrow">ROUTER MANAGEMENT</p>
+          <h1>Network overview</h1>
+          <p>Monitor and manage your OpenWrt gateway from one place.</p>
+        </div>
+        <div class="clock"><span id="clock">--:--</span><small>Local time</small></div>
+      </section>
+
+      <section class="router-hero">
+        <div class="router-visual" aria-hidden="true">
+          <span class="antenna left"></span><span class="antenna right"></span>
+          <div class="router-box"><i></i><i></i><i></i><i></i></div>
+        </div>
+        <div class="router-copy">
+          <span class="status-pill {% if router_connection.reachable %}online{% else %}offline{% endif %}" id="router-status">
+            <i></i><span>{{ router_connection.detail }}</span>
+          </span>
+          <h2>OpenWrt Gateway</h2>
+          <p>{{ router_connection.host }}</p>
+          <a href="{{ router_connection.luci_url }}" target="_blank" rel="noopener">Open LuCI administration ↗</a>
+        </div>
+        <div class="hero-stats">
+          <div><span>CONNECTION</span><strong>{% if router_connection.reachable %}Active{% else %}Unavailable{% endif %}</strong></div>
+          <div><span>AUTHENTICATION</span><strong>{% if router_logged_in %}Verified{% else %}Required{% endif %}</strong></div>
+          <div><span>SECURITY MODE</span><strong>{{ lab_condition }}</strong></div>
+        </div>
+      </section>
+
+      {% if not router_logged_in %}
+      <section class="login-panel">
+        <div class="login-message">
+          <div class="shield-icon">✓</div>
+          <div><p class="eyebrow">SECURE ACCESS</p><h2>Connect to your router</h2>
+          <p>Sign in with the same administrator credentials used by OpenWrt LuCI.</p></div>
+        </div>
+        <form method="post" action="{% url 'login' %}">
+          <input type="hidden" name="csrf_token" value="{{ lab_csrf_token }}">
+          {% if login_error %}<div class="form-alert">{{ login_error }}</div>{% endif %}
+          <div class="form-row">
+            <label>Router username
+              <span class="input-wrap"><svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-5 0-9 2.5-9 5.5V22h18v-2.5C21 16.5 17 14 12 14Z"/></svg><input name="username" autocomplete="username" placeholder="root" required autofocus></span>
+            </label>
+            <label>Router password
+              <span class="input-wrap"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10h16V10a2 2 0 0 0-2-2Zm-8-2a2 2 0 1 1 4 0v2h-4V6Zm3 10.7V18h-2v-1.3a2 2 0 1 1 2 0Z"/></svg><input name="password" type="password" autocomplete="current-password" placeholder="••••••••" required></span>
+            </label>
+          </div>
+          <button class="primary" type="submit">Authenticate with router <span>→</span></button>
+          <p class="privacy">Credentials are verified by OpenWrt and are not stored by Django.</p>
+        </form>
+      </section>
+      {% else %}
+      <section class="section-head"><div><p class="eyebrow">QUICK SETTINGS</p><h2>Router controls</h2></div><span>Changes apply directly to this session</span></section>
+      <div class="control-grid">
+        <section class="control-card" id="network">
+          <div class="card-top"><span class="card-icon blue"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm6.7 8h-3.1a14 14 0 0 0-1.3-5A7 7 0 0 1 18.7 11ZM12 5c.9 1.1 1.5 3.3 1.6 6h-3.2c.1-2.7.7-4.9 1.6-6ZM9.7 6a14 14 0 0 0-1.3 5H5.3A7 7 0 0 1 9.7 6ZM5.3 13h3.1a14 14 0 0 0 1.3 5 7 7 0 0 1-4.4-5Zm6.7 6c-.9-1.1-1.5-3.3-1.6-6h3.2c-.1 2.7-.7 4.9-1.6 6Zm2.3-1a14 14 0 0 0 1.3-5h3.1a7 7 0 0 1-4.4 5Z"/></svg></span><span class="tag">WAN</span></div>
+          <h3>DNS resolver</h3><p>Configure the primary name server.</p>
+          <div class="current-value"><span>Current address</span><strong>{{ state.dns }}</strong></div>
+          <form class="ajax" method="post" action="{% url 'dns' %}">
+            <input type="hidden" name="csrf_token" value="{{ lab_csrf_token }}">
+            <label>Primary DNS<input name="dns" value="{{ state.dns }}" inputmode="decimal" required></label>
+            <button class="primary">Apply changes</button>
+          </form>
+        </section>
+
+        <section class="control-card" id="security">
+          <div class="card-top"><span class="card-icon purple"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10h16V10a2 2 0 0 0-2-2Zm-8-2a2 2 0 1 1 4 0v2h-4V6Zm3 10.7V18h-2v-1.3a2 2 0 1 1 2 0Z"/></svg></span><span class="tag">{{ state.password_changes }} changes</span></div>
+          <h3>Administrator password</h3><p>Update access credentials for this experiment.</p>
+          <form class="ajax" method="post" action="{% url 'passwd' %}">
+            <input type="hidden" name="csrf_token" value="{{ lab_csrf_token }}">
+            <label>New password<input name="password" type="password" minlength="8" placeholder="At least 8 characters" required></label>
+            <button class="primary">Update password</button>
+          </form>
+        </section>
+
+        <section class="control-card" id="device">
+          <div class="card-top"><span class="card-icon orange"><svg viewBox="0 0 24 24"><path d="M13 3h-2v10h2V3Zm4.8 2.2-1.4 1.4a7 7 0 1 1-8.8 0L6.2 5.2a9 9 0 1 0 11.6 0Z"/></svg></span><span class="tag">{{ state.reboot_count }} reboots</span></div>
+          <h3>System restart</h3><p>Restart the physical OpenWrt gateway.</p>
+          <div class="warning-box">The router will be unavailable briefly while it restarts.</div>
+          <form class="ajax reboot-form" method="post" action="{% url 'reboot' %}">
+            <input type="hidden" name="csrf_token" value="{{ lab_csrf_token }}">
+            <button class="danger">Restart router</button>
+          </form>
+        </section>
+      </div>
+      <form method="post" action="{% url 'logout' %}" class="signout">
+        <input type="hidden" name="csrf_token" value="{{ lab_csrf_token }}"><button>Disconnect session</button>
+      </form>
+      {% endif %}
+    </main>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"><i></i><span></span></div>
+<div class="modal" id="reboot-modal" aria-hidden="true">
+  <div class="modal-card"><span class="card-icon orange">!</span><h2>Restart OpenWrt router?</h2>
+    <p>Network access will be interrupted while the gateway reboots.</p>
+    <div><button class="secondary cancel-reboot">Cancel</button><button class="danger confirm-reboot">Restart now</button></div>
+  </div>
+</div>
+<script>
+const csrfToken="{{ lab_csrf_token|escapejs }}";
+const toast=document.querySelector("#toast");
+function showToast(message,ok=true){toast.querySelector("span").textContent=message;toast.className=ok?"show ok":"show fail";setTimeout(()=>toast.className="",3500)}
+async function submitForm(form){
+  const button=form.querySelector("button"), label=button.textContent;
+  button.disabled=true;button.textContent="Applying…";
+  try{
+    const response=await fetch(form.action,{method:"POST",body:new FormData(form),headers:csrfToken?{"X-CSRF-Token":csrfToken}:{},credentials:"same-origin"});
+    const result=await response.json();
+    showToast(result.message||(response.ok?"Setting applied successfully.":result.error||"Request failed"),response.ok);
+    if(response.ok&&!form.classList.contains("reboot-form"))setTimeout(()=>location.reload(),700);
+    if(response.ok&&form.classList.contains("reboot-form"))document.querySelector("#router-status").className="status-pill offline";
+  }catch(error){showToast("The router could not be reached.",false)}
+  finally{button.disabled=false;button.textContent=label}
+}
+document.querySelectorAll(".ajax:not(.reboot-form)").forEach(form=>form.addEventListener("submit",event=>{event.preventDefault();submitForm(form)}));
+const rebootForm=document.querySelector(".reboot-form"),modal=document.querySelector("#reboot-modal");
+if(rebootForm){
+  rebootForm.addEventListener("submit",event=>{event.preventDefault();modal.classList.add("open");modal.setAttribute("aria-hidden","false")});
+  document.querySelector(".cancel-reboot").onclick=()=>{modal.classList.remove("open");modal.setAttribute("aria-hidden","true")};
+  document.querySelector(".confirm-reboot").onclick=()=>{modal.classList.remove("open");submitForm(rebootForm)};
+}
+document.querySelector(".menu").onclick=()=>document.querySelector(".sidebar").classList.toggle("open");
+function updateClock(){document.querySelector("#clock").textContent=new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}updateClock();setInterval(updateClock,30000);
+</script>
+</body>
+</html>
