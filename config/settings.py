@@ -29,7 +29,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get(
-        "DJANGO_ALLOWED_HOSTS", "192.168.56.1,127.0.0.1,localhost"
+        "DJANGO_ALLOWED_HOSTS", "192.168.56.1,127.0.0.1,localhost,0.0.0.0"
     ).split(",")
 ]
 
