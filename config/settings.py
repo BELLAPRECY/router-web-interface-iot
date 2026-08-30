@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -48,6 +50,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'router.middleware.PerformanceLoggingMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'router.middleware.FullStackCSRFMiddleware',
@@ -128,6 +131,46 @@ STATIC_URL = 'static/'
 LAB_CONDITION = os.environ.get("LAB_CONDITION", "C1").upper()
 if LAB_CONDITION not in {"C0", "C1"}:
     raise ValueError("LAB_CONDITION must be C0 or C1")
+
+# Structured performance logging. The launch scripts enable this for lab runs.
+OBSERVABILITY_ENABLED = os.environ.get("OBSERVABILITY_ENABLED", "0") == "1"
+LAB_RUN_ID = os.environ.get(
+    "LAB_RUN_ID",
+    f"{LAB_CONDITION}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}",
+)
+if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}", LAB_RUN_ID):
+    raise ValueError("LAB_RUN_ID may contain only letters, digits, dot, dash, and underscore")
+OBSERVABILITY_LOG_DIR = Path(
+    os.environ.get("OBSERVABILITY_LOG_DIR", str(BASE_DIR / "logs"))
+)
+
+if OBSERVABILITY_ENABLED:
+    OBSERVABILITY_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "performance_json": {"()": "router.observability.JsonEventFormatter"},
+    },
+    "handlers": {
+        "performance_file": {
+            "class": "logging.FileHandler",
+            "filename": str(OBSERVABILITY_LOG_DIR / f"{LAB_RUN_ID}.jsonl"),
+            "mode": "a",
+            "encoding": "utf-8",
+            "delay": True,
+            "formatter": "performance_json",
+        },
+    },
+    "loggers": {
+        "router.performance": {
+            "handlers": ["performance_file"] if OBSERVABILITY_ENABLED else [],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
 
 LAB_ALLOWED_ORIGINS = {
     origin.strip().rstrip("/")

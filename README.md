@@ -154,6 +154,42 @@ Django sends the credentials directly to the fixed OpenWrt ubus endpoint. It
 stores only the temporary `ubus_rpc_session` returned by OpenWrt; it does not
 save the router password.
 
+### Performance and latency logs
+
+Both launch scripts enable structured observability and create one JSON Lines
+file per run under `logs/`. Supply a stable experiment identifier when you want
+the filename to match your evidence folder:
+
+```bash
+LAB_RUN_ID=C0-V1-run01 ./run_c0.sh
+LAB_RUN_ID=C1-V1-run01 ./run_c1.sh
+```
+
+Each HTTP request records total Django latency, thread CPU time, memory, status,
+security outcome, and a request ID. LuCI and ubus calls record their own latency
+using the same request ID. Events are written only when an HTTP request is
+handled; the application does not log while idle. Passwords, cookies, CSRF
+tokens, usernames, request bodies, and ubus session IDs are never logged.
+
+Summarize one run:
+
+```bash
+python manage.py summarize_performance logs/C1-V1-run01.jsonl
+```
+
+Compare valid C0 and C1 requests and optionally save a JSON summary:
+
+```bash
+python manage.py summarize_performance \
+  logs/C0-valid-run01.jsonl logs/C1-valid-run01.jsonl \
+  --json-output evidence/valid-run01-performance.json
+```
+
+The command reports count, mean, median, p95 and maximum request latency,
+OpenWrt-call latency, per-request CPU and RSS memory, failures, and C1 overhead for matching
+successful paths. Browser-side latency and requests blocked before reaching
+Django must still be captured in the browser Network panel or a HAR file.
+
 ## 7. Environment configuration
 
 The launch scripts set the common values, but every option can be overridden:
@@ -170,6 +206,9 @@ The launch scripts set the common values, but every option can be overridden:
 | `ROUTER_STATUS_TIMEOUT` | `1` | Dashboard reachability timeout |
 | `ROUTER_STATUS_ENABLED` | `1` | Set to `0` to disable the live probe |
 | `SESSION_COOKIE_SECURE` | `0` | Set to `1` only when Django uses HTTPS |
+| `LAB_RUN_ID` | timestamped condition | Safe identifier used as the JSONL filename |
+| `OBSERVABILITY_ENABLED` | `0` (`1` in run scripts) | Enable structured performance logging |
+| `OBSERVABILITY_LOG_DIR` | `logs/` | Directory for JSONL run logs |
 
 For example, if OpenWrt is moved to `192.168.56.20`:
 

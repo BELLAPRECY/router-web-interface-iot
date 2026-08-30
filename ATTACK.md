@@ -128,6 +128,24 @@ Use a clean browser profile for every condition:
 7. Start a timer or performance capture.
 8. Open the attack page from the separate attacker origin.
 
+Give every execution a unique run ID so the server evidence is written to a
+separate structured log:
+
+```bash
+LAB_RUN_ID=C0-V1-run01 ./run_c0.sh
+```
+
+After the run, summarize it with:
+
+```bash
+python manage.py summarize_performance logs/C0-V1-run01.jsonl \
+  --json-output evidence/C0-V1-run01/performance-summary.json
+```
+
+The server's `duration_ms` measures Django processing time. A nested
+`router_call` event measures OpenWrt network time. Use the browser HAR for
+browser-to-server latency and for requests blocked before Django receives them.
+
 Do not change multiple variables between C0 and C1. Use the same browser,
 payloads, network, timing method, and router state.
 

@@ -13,6 +13,7 @@ def router_login_required(view):
     @wraps(view)
     def wrapped(request, *args, **kwargs):
         if not request.session.get("router_authenticated"):
+            request._observability_outcome = "unauthenticated"
             return JsonResponse({"error": "Authentication required"}, status=401)
         return view(request, *args, **kwargs)
     return wrapped
