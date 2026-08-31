@@ -1,17 +1,17 @@
 [20:16, 8/31/2026] Matimba Maholobela: ncpa.cpl
 [20:17, 8/31/2026] Matimba Maholobela: Set-NetConnectionProfile `
->>   -InterfaceIndex 20 `
->>   -NetworkCategory Private
+   -InterfaceIndex 20 `
+   -NetworkCategory Private
 [20:17, 8/31/2026] Matimba Maholobela: New-NetFirewallRule `
->>   -DisplayName "CSRF Lab ICMP Ping" `
->>   -Direction Inbound `
->>   -Protocol ICMPv4 `
->>   -IcmpType 8 `
->>   -InterfaceAlias "Ethernet 2" `
->>   -RemoteAddress 192.168.56.0/24 `
->>   -Action Allow `
->>   -Profile Private
+   -DisplayName "CSRF Lab ICMP Ping" `
+   -Direction Inbound `
+   -Protocol ICMPv4 `
+   -IcmpType 8 `
+   -InterfaceAlias "Ethernet 2" `
+   -RemoteAddress 192.168.56.0/24 `
+   -Action Allow `
+   -Profile Private
 [20:17, 8/31/2026] Matimba Maholobela: Start-Process powershell.exe `
->>   -Verb RunAs `
->>   -ArgumentList "-NoExit" `
->>   -WorkingDirectory (Get-Location).Path
+   -Verb RunAs `
+   -ArgumentList "-NoExit" `
+   -WorkingDirectory (Get-Location).Path
