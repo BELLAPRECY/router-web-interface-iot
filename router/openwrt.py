@@ -10,6 +10,9 @@ from django.conf import settings
 from .observability import log_event
 
 
+ANONYMOUS_UBUS_SESSION = "00000000000000000000000000000000"
+
+
 @dataclass
 class RouterLoginResult:
     authenticated: bool
@@ -140,13 +143,18 @@ def authenticate(username, password):
     return RouterLoginResult(False, error="The router rejected those credentials.")
 
 
-def call(session_id, object_name, method_name, arguments=None):
+def call(
+    session_id, object_name, method_name, arguments=None, allow_anonymous=False
+):
     """Call a fixed OpenWrt ubus method using the authenticated router session."""
     started_ns = time.perf_counter_ns()
     operation = f"ubus_{object_name}_{method_name}"
     if not session_id:
-        _log_router_call(operation, started_ns, "missing_session", False)
-        return RouterCallResult(False, "The router session is missing; sign in again.")
+        if allow_anonymous:
+            session_id = ANONYMOUS_UBUS_SESSION
+        else:
+            _log_router_call(operation, started_ns, "missing_session", False)
+            return RouterCallResult(False, "The router session is missing; sign in again.")
     payload = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -192,5 +200,10 @@ def call(session_id, object_name, method_name, arguments=None):
     return RouterCallResult(False, "OpenWrt rejected the command.")
 
 
-def reboot(session_id):
-    return call(session_id, "system", "reboot")
+def reboot(session_id, allow_anonymous=False):
+    return call(
+        session_id,
+        "system",
+        "reboot",
+        allow_anonymous=allow_anonymous,
+    )

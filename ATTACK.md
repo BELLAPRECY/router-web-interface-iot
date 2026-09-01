@@ -118,8 +118,10 @@ Use a clean browser profile for every condition:
 
 1. Start C0 or C1 on the Django host.
 2. Open `http://192.168.56.1:8000`.
-3. Log in with the OpenWrt/LuCI router credentials.
-4. Confirm the dashboard says `Router authenticated`.
+3. For C0, do not log in; confirm `/api/status` reports
+   `"authentication_required": false`.
+4. For C1, log in with the OpenWrt/LuCI credentials and confirm the dashboard
+   says `Router authenticated`.
 5. Save the initial state from `/api/status`.
 6. Open browser developer tools:
    - Network panel
@@ -127,6 +129,10 @@ Use a clean browser profile for every condition:
    - Disable cache enabled
 7. Start a timer or performance capture.
 8. Open the attack page from the separate attacker origin.
+
+For a C0 V3 run, Django sends an anonymous ubus call without credentials. The
+isolated OpenWrt router must permit anonymous `system.reboot` access for the
+real reboot to occur.
 
 Give every execution a unique run ID so the server evidence is written to a
 separate structured log:
@@ -153,8 +159,8 @@ payloads, network, timing method, and router state.
 
 ### Objective
 
-Test whether another origin can submit an authenticated request to `/dns`
-without knowing a CSRF token.
+Test whether another origin can submit a request to `/dns` without
+authentication or a CSRF token in C0, and whether C1 rejects it.
 
 ### Payload
 
@@ -175,7 +181,8 @@ CSRF token omitted
 
 ### Expected results
 
-- C0: request can succeed if the browser sends the Django session cookie.
+- C0: the anonymous request should return `200`, and the shared DNS experiment
+  state should change even if the browser sends no cookie.
 - C1: request should be rejected with `403` because the Origin is disallowed;
   SameSite should also withhold the session cookie on a genuinely cross-site
   request.
@@ -206,7 +213,8 @@ CSRF token omitted
 
 ### Expected results
 
-- C0: the counter can increase when the authenticated cookie is attached.
+- C0: the anonymous request should return `200`, and the shared counter should
+  increase without a session cookie.
 - C1: the request should return `403`.
 
 The submitted password is never retained and this vector does not change the
@@ -246,8 +254,9 @@ CSRF token omitted
 
 ### Expected results
 
-- C0: when the browser sends the authenticated Django session, Django can call
-  the real OpenWrt `system.reboot` ubus method.
+- C0: Django accepts the anonymous request and sends a zero-session ubus
+  `system.reboot` call without credentials. The request succeeds if OpenWrt
+  permits anonymous reboot and returns `502` if its ACL rejects the command.
 - C1: the cross-origin request should be rejected with `403` before the ubus
   call.
 

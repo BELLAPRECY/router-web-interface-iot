@@ -15,10 +15,17 @@ host-only VirtualBox research network.
 
 The server runs in one of two mutually exclusive conditions:
 
-| Condition | Label | CSRF token | Session cookie | Origin validation |
-|---|---|---:|---|---:|
-| `C0` | Baseline | Disabled | No SameSite attribute | Disabled |
-| `C1` | Full-stack defence | Enabled | `SameSite=Strict`; `HttpOnly` | Enabled |
+| Condition | Label | Authentication | CSRF token | Session cookie | Origin validation |
+|---|---|---:|---:|---|---:|
+| `C0` | Anonymous baseline | Not required | Disabled | No SameSite attribute | Disabled |
+| `C1` | Full-stack defence | Required | Enabled | `SameSite=Strict`; `HttpOnly` | Enabled |
+
+In C0, `/dns` and `/passwd` accept anonymous requests and update shared
+in-process experiment state, so their effects remain visible from
+`/api/status` even when a browser sends no session cookie. For an anonymous
+real `/reboot`, Django sends the ubus call with OpenWrt's anonymous zero-session
+identifier. The router must permit anonymous `system.reboot` access or it will
+reject the command. Never expose C0 outside the isolated host-only lab.
 
 In C1, all three protections are active together:
 
@@ -132,6 +139,10 @@ Convenience scripts provide the correct addresses for the current lab.
 ./run_c0.sh
 ```
 
+V3 sends an anonymous ubus reboot without a username, password, or authenticated
+session. It succeeds only when the isolated OpenWrt router permits anonymous
+`system.reboot`; otherwise Django reports the router rejection as `502`.
+
 Both scripts bind Django to `0.0.0.0:8000`. On the same computer, open:
 
 ```text
@@ -144,7 +155,8 @@ From a different VM on the host-only network, use:
 http://192.168.56.1:8000/
 ```
 
-Sign in with the same username and password used at:
+In C0, login is not required for the experimental DNS and password actions. In
+C1, sign in with the same username and password used at:
 
 ```text
 http://192.168.56.2/cgi-bin/luci/
@@ -197,6 +209,7 @@ The launch scripts set the common values, but every option can be overridden:
 | Variable | Default | Description |
 |---|---|---|
 | `LAB_CONDITION` | `C1` | Must be `C0` or `C1` |
+| `LAB_REQUIRE_AUTH` | `0` in C0; `1` in C1 | Require a router-authenticated Django session for actions |
 | `DJANGO_ALLOWED_HOSTS` | `.1`, localhost | Hostnames/IPs accepted by Django |
 | `LAB_ALLOWED_ORIGINS` | `.1:8000`, localhost | Exact trusted Django origins |
 | `ROUTER_AUTH_BACKEND` | `ubus` | Router authentication backend |
@@ -301,28 +314,29 @@ Use separate runs for C0 and C1:
 
 1. Start Django with `./run_c0.sh`.
 2. Clear all Django cookies or use a clean browser profile.
-3. Sign in through the Django dashboard.
-4. Record the initial state from `/api/status`.
-5. Execute V1, V2, and V3 from the attacker origin.
-6. Record HTTP status, final state, latency, CPU usage, and memory usage.
-7. Stop Django.
-8. Start Django with `./run_c1.sh`.
-9. Clear cookies or use another clean browser profile.
-10. Repeat the same login, attacks, and measurements.
+3. Do not sign in; confirm `/api/status` reports
+   `"authentication_required": false`.
+4. Record the initial state and execute V1, V2, and V3 from the attacker origin.
+5. Record HTTP status, final state, latency, CPU usage, and memory usage.
+6. Stop Django.
+7. Start Django with `./run_c1.sh`.
+8. Clear cookies or use another clean browser profile.
+9. Sign in through the Django dashboard.
+10. Repeat the attacks and measurements.
 
 Expected application-level results:
 
 | Request | C0 | C1 |
 |---|---|---|
-| Legitimate same-origin form with valid login | Accepted | Accepted |
-| Cross-origin request without token | Accepted if browser sends session | Rejected `403` |
+| Legitimate same-origin form | Accepted anonymously | Accepted after login |
+| Cross-origin request without token | Accepted anonymously | Rejected `403` |
 | Correct token from disallowed origin | Accepted | Rejected `403` |
 | Allowed origin with missing/invalid token | Accepted | Rejected `403` |
 | Null Origin and no Referer | Accepted | Rejected `403` |
 
 Modern browsers may independently block third-party cookies, private-network
-requests, or cross-origin fetches. Record the browser and version because these
-browser controls can affect observed C0 attack success independently of Django.
+requests, or cross-origin fetches. V1 and V2 no longer depend on a C0 cookie,
+but a browser-level network block must still be reported separately.
 
 ## 12. HTTPS and the Secure cookie
 
@@ -467,7 +481,8 @@ router-web-interface-iot/
   production deployment.
 - The ubus URL is server configuration, not user input, which limits SSRF
   exposure.
-- Router passwords are forwarded for authentication and then discarded.
+- Interactive router passwords are forwarded for authentication and then
+  discarded. C0's anonymous reboot path contains no router credentials.
 - The ubus session token is stored in the Django session and removed at logout.
 - Submitted password-change values are not retained.
 - Use HTTPS before enabling Secure cookies or conducting the final C1 cookie

@@ -31,7 +31,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get(
-        "DJANGO_ALLOWED_HOSTS", "192.168.56.1,127.0.0.1,localhost,0.0.0.0"
+        "DJANGO_ALLOWED_HOSTS", "192.168.56.1,127.0.0.1,localhost,*"
     ).split(",")
 ]
 
@@ -131,6 +131,11 @@ STATIC_URL = 'static/'
 LAB_CONDITION = os.environ.get("LAB_CONDITION", "C1").upper()
 if LAB_CONDITION not in {"C0", "C1"}:
     raise ValueError("LAB_CONDITION must be C0 or C1")
+
+# C0 is an anonymous baseline; C1 retains router-session authentication.
+LAB_REQUIRE_AUTH = os.environ.get(
+    "LAB_REQUIRE_AUTH", "1" if LAB_CONDITION == "C1" else "0"
+) == "1"
 
 # Structured performance logging. The launch scripts enable this for lab runs.
 OBSERVABILITY_ENABLED = os.environ.get("OBSERVABILITY_ENABLED", "0") == "1"

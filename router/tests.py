@@ -1,9 +1,10 @@
 from unittest.mock import MagicMock, patch
 
+from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 
 from .management.commands.summarize_performance import build_summary, metric_summary
-from .openwrt import authenticate, reboot
+from .openwrt import ANONYMOUS_UBUS_SESSION, RouterCallResult, authenticate, reboot
 from .security import TOKEN_KEY
 
 ORIGIN = "http://router.test"
@@ -11,7 +12,7 @@ ORIGIN = "http://router.test"
 
 @override_settings(
     LAB_ALLOWED_ORIGINS={ORIGIN}, LAB_CONDITION="C1",
-    ROUTER_AUTH_BACKEND="local", ROUTER_STATUS_ENABLED=False
+    LAB_REQUIRE_AUTH=True, ROUTER_AUTH_BACKEND="local", ROUTER_STATUS_ENABLED=False
 )
 class DefenceTests(TestCase):
     def setUp(self):
@@ -38,6 +39,14 @@ class DefenceTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertIn("Origin", response.json()["error"])
 
+    def test_valid_request_still_requires_authentication(self):
+        response = self.client.post(
+            "/dns",
+            {"dns": "6.6.6.6", "csrf_token": self.token},
+            HTTP_ORIGIN=ORIGIN,
+        )
+        self.assertEqual(response.status_code, 401)
+
     def test_referer_fallback(self):
         response = self.client.post(
             "/login",
@@ -56,8 +65,16 @@ class DefenceTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
 
-@override_settings(LAB_CONDITION="C0", ROUTER_AUTH_BACKEND="local")
+@override_settings(
+    LAB_CONDITION="C0",
+    LAB_REQUIRE_AUTH=False,
+    ROUTER_AUTH_BACKEND="local",
+    ROUTER_STATUS_ENABLED=False,
+)
 class BaselineTests(TestCase):
+    def setUp(self):
+        cache.delete("router:c0:shared-state")
+
     def test_cross_origin_request_is_not_blocked(self):
         response = self.client.post(
             "/login",
@@ -70,6 +87,42 @@ class BaselineTests(TestCase):
         response = self.client.get("/attack-lab/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "CSRF attack laboratory")
+
+    def test_anonymous_dns_attack_succeeds_and_changes_shared_state(self):
+        attacker = Client()
+        response = attacker.post(
+            "/dns",
+            {"dns": "6.6.6.6"},
+            HTTP_ORIGIN="http://attacker.test:8080",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        observer_status = Client().get("/api/status").json()
+        self.assertFalse(observer_status["authentication_required"])
+        self.assertFalse(observer_status["authenticated"])
+        self.assertEqual(observer_status["state"]["dns"], "6.6.6.6")
+
+    def test_anonymous_password_attack_succeeds(self):
+        response = self.client.post(
+            "/passwd",
+            {"password": "attacker-password"},
+            HTTP_ORIGIN="http://attacker.test:8080",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Client().get("/api/status").json()["state"]["password_changes"], 1)
+
+    @patch("router.views.reboot_openwrt")
+    def test_anonymous_reboot_uses_anonymous_ubus_call(self, mocked_reboot):
+        mocked_reboot.return_value = RouterCallResult(True)
+
+        response = self.client.post(
+            "/reboot", HTTP_ORIGIN="http://attacker.test:8080"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mocked_reboot.assert_called_once_with("", allow_anonymous=True)
+        self.assertEqual(Client().get("/api/status").json()["state"]["reboot_count"], 1)
 
 
 class OpenWrtAuthenticationTests(TestCase):
@@ -114,9 +167,24 @@ class OpenWrtAuthenticationTests(TestCase):
         self.assertIn(b'"system"', sent)
         self.assertIn(b'"reboot"', sent)
 
+    @patch("router.openwrt.urlopen")
+    def test_anonymous_reboot_uses_zero_ubus_session(self, mocked_urlopen):
+        response = MagicMock()
+        response.read.return_value = b'{"jsonrpc":"2.0","id":1,"result":[0]}'
+        mocked_urlopen.return_value.__enter__.return_value = response
+
+        result = reboot("", allow_anonymous=True)
+
+        self.assertTrue(result.successful)
+        sent = mocked_urlopen.call_args.args[0].data
+        self.assertIn(ANONYMOUS_UBUS_SESSION.encode(), sent)
+        self.assertIn(b'"system"', sent)
+        self.assertIn(b'"reboot"', sent)
+
 
 @override_settings(
     LAB_CONDITION="C1",
+    LAB_REQUIRE_AUTH=True,
     LAB_ALLOWED_ORIGINS={ORIGIN},
     OBSERVABILITY_ENABLED=True,
     ROUTER_AUTH_BACKEND="local",
