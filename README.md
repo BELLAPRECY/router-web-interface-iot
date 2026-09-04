@@ -46,7 +46,7 @@ Browser / Django host
           | VirtualBox host-only network
           |
 OpenWrt VM
-  192.168.56.2:80
+  192.168.56.2:8000
   ├── /cgi-bin/luci/   LuCI interface
   └── /ubus            JSON-RPC authentication and commands
 ```
